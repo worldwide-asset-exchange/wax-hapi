@@ -19,7 +19,6 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/condition_variable.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include <queue>
 
@@ -66,7 +65,6 @@ public:
    mongo_db_plugin_impl();
    ~mongo_db_plugin_impl();
 
-
    fc::optional<boost::signals2::scoped_connection> accepted_block_connection;
    fc::optional<boost::signals2::scoped_connection> irreversible_block_connection;
    fc::optional<boost::signals2::scoped_connection> accepted_transaction_connection;
@@ -82,7 +80,6 @@ public:
    void _process_accepted_transaction(const chain::transaction_metadata_ptr&);
    void process_applied_transaction(const chain::transaction_trace_ptr&);
    void _process_applied_transaction(const chain::transaction_trace_ptr&);
-   void _process_transaction(const chain::transaction_trace_ptr&);
    void process_accepted_block( const chain::block_state_ptr& );
    void _process_accepted_block( const chain::block_state_ptr& );
    void process_irreversible_block(const chain::block_state_ptr&);
@@ -127,17 +124,6 @@ public:
    bool store_transactions = true;
    bool store_transaction_traces = true;
    bool store_action_traces = true;
-
-   bool store_raw_blocks = true;
-   bool store_raw_txtraces = true;
-   bool store_actions_via_traces = false;
-   bool store_block_states = true;
-
-   bool bypass_filter = false;
-   std::set<filter_entry> filter_on;
-   std::set<filter_entry> filter_out;
-   bool filter(const chain::action& act);
-
 
    std::string db_name;
    mongocxx::instance mongo_inst;
@@ -639,39 +625,6 @@ void mongo_db_plugin_impl::process_accepted_block( const chain::block_state_ptr&
    }
 }
 
-
-bool mongo_db_plugin_impl::filter(const chain::action& act) {
-  bool pass_on = false;
-  if (bypass_filter) {
-    pass_on = true;
-  }
-  if (filter_on.find({ act.account, act.name, 0 }) != filter_on.end()) {
-    pass_on = true;
-  }
-  for( const auto& a : act.authorization ) {
-    if (filter_on.find({ act.account, act.name, a.actor }) != filter_on.end()) {
-      pass_on = true;
-    }
-  }
-
-  if (!pass_on) {  return false;  }
-
-  if (filter_out.find({ act.account, 0, 0 }) != filter_out.end()) {
-    return false;
-  }
-  if (filter_out.find({ act.account, act.name, 0 }) != filter_out.end()) {
-    return false;
-  }
-  for( const auto& a : act.authorization ) {
-    if (filter_out.find({ act.account, act.name, a.actor }) != filter_out.end()) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
 void mongo_db_plugin_impl::_process_accepted_transaction( const chain::transaction_metadata_ptr& t ) {
    using namespace bsoncxx::types;
    using bsoncxx::builder::basic::kvp;
@@ -860,118 +813,6 @@ void mongo_db_plugin_impl::_process_applied_transaction( const chain::transactio
       }
    } catch(...) {
       handle_mongo_exception("trans_traces insert: " + json, __LINE__);
-   }
-}
-
-
-void mongo_db_plugin_impl::_process_transaction( const chain::transaction_trace_ptr& t ) {
-   using namespace bsoncxx::types;
-   using bsoncxx::builder::basic::kvp;
-   using bsoncxx::builder::basic::make_document;
-   using bsoncxx::builder::basic::make_array;
-   namespace bbb = bsoncxx::builder::basic;
-
-   auto trans_traces = mongo_conn[db_name][trans_traces_col];
-   auto trans_traces_doc = bsoncxx::builder::basic::document{};
-   auto actions = mongo_conn[db_name][actions_col];
-   accounts = mongo_conn[db_name][accounts_col];
-
-   auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-         std::chrono::microseconds{fc::time_point::now().time_since_epoch().count()});
-
-   const auto trx_id = t->id;
-   const auto trx_id_str = trx_id.str();
-
-   bool actions_to_write = false;
-   mongocxx::options::bulk_write bulk_opts;
-   bulk_opts.ordered(false);
-   mongocxx::bulk_write bulk_actions = actions.create_bulk_write(bulk_opts);
-
-   int32_t act_num = 0;
-   auto process_action = [&](const std::string& trx_id_str, const chain::action_trace& at, bbb::array& act_array, bool cfa) -> auto {
-      auto process_action_impl = [&](const std::string& trx_id_str, const chain::action_trace& at, bbb::array& act_array, bool cfa, auto& impl_ref) -> void {
-        const chain::action& act = at.act;
-        auto act_doc = bsoncxx::builder::basic::document();
-        const bool pass_filter = filter(act);
-        if( start_block_reached && pass_filter) {
-           act_doc.append( kvp( "action_num", b_int32{act_num} ),
-                           kvp( "trx_id", trx_id_str ));
-           //act_doc.append( kvp( "cfa", b_bool{cfa} ));
-           act_doc.append( kvp( "account", act.account.to_string()));
-           act_doc.append( kvp( "name", act.name.to_string()));
-           act_doc.append( kvp( "authorization", [&act]( bsoncxx::builder::basic::sub_array subarr ) {
-              for( const auto& auth : act.authorization ) {
-                 subarr.append( [&auth]( bsoncxx::builder::basic::sub_document subdoc ) {
-                    subdoc.append( kvp( "actor", auth.actor.to_string()),
-                                   kvp( "permission", auth.permission.to_string()));
-                 } );
-              }
-           } ));
-        }
-        try {
-           update_account( accounts, act );
-        } catch (...) {
-           ilog( "Unable to update account for ${s}::${n}", ("s", act.account)( "n", act.name ));
-        }
-        if( start_block_reached && pass_filter ) {
-           add_data( act_doc, accounts, act, abi_serializer_max_time );
-           act_array.append( act_doc );
-           mongocxx::model::insert_one insert_op{act_doc.view()};
-           bulk_actions.append( insert_op );
-           actions_to_write = true;
-        }
-        ++act_num;
-        // TODO: Figure out why this is duplicating actions.
-        // for( const auto& iline : at.inline_traces ) {
-        //   impl_ref( trx_id_str, iline, act_array, false, impl_ref);
-        // }
-      };
-
-      process_action_impl(trx_id_str, at, act_array, cfa, process_action_impl);
-      return act_num;
-   };
-
-   bsoncxx::builder::basic::array action_array;
-   for( const auto& atrace : t->action_traces ) {
-     process_action( trx_id_str, atrace, action_array, false );
-   }
-
-   if (actions_to_write) {
-      if (store_raw_txtraces) {
-        auto v = to_variant_with_abi( *t, accounts, abi_serializer_max_time );
-        string json = fc::json::to_string( v );
-        try {
-           const auto& value = bsoncxx::from_json( json );
-           trans_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
-        } catch( bsoncxx::exception& ) {
-           try {
-              json = fc::prune_invalid_utf8( json );
-              const auto& value = bsoncxx::from_json( json );
-              trans_traces_doc.append( bsoncxx::builder::concatenate_doc{value.view()} );
-              trans_traces_doc.append( kvp( "non-utf8-purged", b_bool{true} ));
-           } catch( bsoncxx::exception& e ) {
-              elog( "Unable to convert transaction JSON to MongoDB JSON: ${e}", ("e", e.what()));
-              elog( "  JSON: ${j}", ("j", json));
-           }
-        }
-        trans_traces_doc.append( kvp( "createdAt", b_date{now} ));
-        
-        try {
-           if( !trans_traces.insert_one( trans_traces_doc.view())) {
-              EOS_ASSERT( false, chain::mongo_db_insert_fail, "Failed to insert trans ${id}", ("id", t->id));
-           }
-        } catch(...) {
-           handle_mongo_exception("trans_traces insert: " + json, __LINE__);
-        }
-      }
-
-      try {
-         if( !bulk_actions.execute() ) {
-            EOS_ASSERT( false, chain::mongo_db_insert_fail, "Bulk actions insert failed for transaction: ${id}", ("id", trx_id_str));
-         }
-      } catch(...) {
-         handle_mongo_exception("actions insert", __LINE__);
-      }
    }
 }
 
@@ -1539,52 +1380,6 @@ void mongo_db_plugin::plugin_initialize(const variables_map& options)
          if( options.count( "abi-serializer-max-time-ms") == 0 ) {
             EOS_ASSERT(false, chain::plugin_config_exception, "--abi-serializer-max-time-ms required as default value not appropriate for parsing full blocks");
          }
-
-         if( options.count( "mongodb-raw-blocks" )) {
-           my->store_raw_blocks = options.at( "mongodb-raw-blocks" ).as<bool>();
-         }
-         if( options.count( "mongodb-block-state" )) {
-           my->store_block_states = options.at( "mongodb-block-state" ).as<bool>();
-         }
-         if( options.count( "mongodb-raw-txtraces" )) {
-           my->store_raw_txtraces = options.at( "mongodb-raw-txtraces" ).as<bool>();
-         }
-         if( options.count( "mongodb-store-act-via-txtraces" )) {
-           my->store_actions_via_traces = options.at( "mongodb-store-act-via-txtraces" ).as<bool>();
-         }
-         if( options.count( "mongodb-cache-abis" )) {
-           cache_abis = options.at( "mongodb-cache-abis" ).as<bool>();
-         }
-
-         if( options.count( "mongodb-filter-on" )) {
-            auto fo = options.at( "mongodb-filter-on" ).as<vector<string>>();
-            for( auto& s : fo ) {
-               if( s == "*" ) {
-                  my->bypass_filter = true;
-                  break;
-               }
-               std::vector<std::string> v;
-               boost::split( v, s, boost::is_any_of( ":" ));
-               EOS_ASSERT( v.size() == 3, fc::invalid_arg_exception, "Invalid value ${s} for --mongodb-filter-on", ("s", s));
-               filter_entry fe{v[0], v[1], v[2]};
-               EOS_ASSERT( fe.receiver.value && fe.action.value, fc::invalid_arg_exception,
-                           "Invalid value ${s} for --mongodb-filter-on", ("s", s));
-               my->filter_on.insert( fe );
-            }
-         }
-         if( options.count( "mongodb-filter-out" )) {
-            auto fo = options.at( "mongodb-filter-out" ).as<vector<string>>();
-            for( auto& s : fo ) {
-               std::vector<std::string> v;
-               boost::split( v, s, boost::is_any_of( ":" ));
-               EOS_ASSERT( v.size() == 3, fc::invalid_arg_exception, "Invalid value ${s} for --mongodb-filter-out", ("s", s));
-               filter_entry fe{v[0], v[1], v[2]};
-               EOS_ASSERT( fe.receiver.value, fc::invalid_arg_exception,
-                           "Invalid value ${s} for --mongodb-filter-out", ("s", s));
-               my->filter_out.insert( fe );
-            }
-         }
-
          my->abi_serializer_max_time = app().get_plugin<chain_plugin>().get_abi_serializer_max_time();
 
          if( options.count( "mongodb-queue-size" )) {
