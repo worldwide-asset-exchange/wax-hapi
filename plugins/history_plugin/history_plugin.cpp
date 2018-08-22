@@ -368,7 +368,7 @@ namespace eosio {
 
    namespace history_apis { 
       read_only::get_actions_result read_only::get_actions( const read_only::get_actions_params& params )const {
-         edump((params));
+        // edump((params));
         auto& chain = history->chain_plug->chain();
         const auto& db = chain.db();
         const auto abi_serializer_max_time = history->chain_plug->get_abi_serializer_max_time();
@@ -380,7 +380,7 @@ namespace eosio {
         int32_t end = 0;
         int32_t offset = params.offset ? *params.offset : -20;
         auto n = params.account_name;
-        idump((pos));
+        //idump((pos));
         if( pos == -1 ) {
             auto itr = idx.lower_bound( boost::make_tuple( name(n.value+1), 0 ) );
             if( itr == idx.begin() ) {
@@ -404,7 +404,7 @@ namespace eosio {
         }
         EOS_ASSERT( end >= start, chain::plugin_exception, "end position is earlier than start position" );
 
-        idump((start)(end));
+        //idump((start)(end));
 
         auto start_itr = idx.lower_bound( boost::make_tuple( n, start ) );
         auto end_itr = idx.upper_bound( boost::make_tuple( n, end) );
