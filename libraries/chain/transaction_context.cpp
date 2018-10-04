@@ -17,6 +17,7 @@ namespace eosio { namespace chain {
    ,trx(t)
    ,id(trx_id)
    ,undo_session()
+   ,hundo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
    ,net_usage(trace->net_usage)
@@ -24,6 +25,7 @@ namespace eosio { namespace chain {
    {
       if (!c.skip_db_sessions()) {
          undo_session = c.db().start_undo_session(true);
+         hundo_session = c.hdb().start_undo_session(true);
       }
       trace->id = id;
       trace->block_num = c.pending_block_state()->block_num;
@@ -265,10 +267,12 @@ namespace eosio { namespace chain {
 
    void transaction_context::squash() {
       if (undo_session) undo_session->squash();
+      if (hundo_session) hundo_session->squash();
    }
 
    void transaction_context::undo() {
       if (undo_session) undo_session->undo();
+      if (hundo_session) hundo_session->undo();
    }
 
    void transaction_context::check_net_usage()const {

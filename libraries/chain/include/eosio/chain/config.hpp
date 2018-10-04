@@ -18,9 +18,12 @@ const static auto default_reversible_cache_size = 340*1024*1024ll;/// 1MB * 340 
 const static auto default_reversible_guard_size = 2*1024*1024ll;/// 1MB * 340 blocks based on 21 producer BFT delay
 
 const static auto default_state_dir_name     = "state";
+const static auto default_history_dir_name   = "history";
 const static auto forkdb_filename            = "forkdb.dat";
 const static auto default_state_size            = 1*1024*1024*1024ll;
 const static auto default_state_guard_size      =    128*1024*1024ll;
+const static auto default_history_size          = 1*1024*1024*1024ll;
+const static auto default_history_guard_size    =    128*1024*1024ll;
 
 
 const static uint64_t system_account_name    = N(eosio);

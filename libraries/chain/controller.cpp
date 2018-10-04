@@ -72,10 +72,11 @@ class maybe_session {
 };
 
 struct pending_state {
-   pending_state( maybe_session&& s )
-   :_db_session( move(s) ){}
+   pending_state( maybe_session&& s, maybe_session&& h )
+   :_db_session( move(s) ), _hdb_session( move(h) ) {}
 
    maybe_session                      _db_session;
+   maybe_session                      _hdb_session;
 
    block_state_ptr                    _pending_block_state;
 
@@ -87,12 +88,14 @@ struct pending_state {
 
    void push() {
       _db_session.push();
+      _hdb_session.push();
    }
 };
 
 struct controller_impl {
    controller&                    self;
    chainbase::database            db;
+   chainbase::database            hdb;
    chainbase::database            reversible_blocks; ///< a special database to persist blocks that have successfully been applied but are still reversible
    block_log                      blog;
    optional<pending_state>        pending;
@@ -135,6 +138,7 @@ struct controller_impl {
       }
       head = prev;
       db.undo();
+      hdb.undo();
 
    }
 
@@ -148,6 +152,9 @@ struct controller_impl {
     db( cfg.state_dir,
         cfg.read_only ? database::read_only : database::read_write,
         cfg.state_size ),
+    hdb( cfg.history_dir,
+        database::read_write,
+        cfg.history_size ),
     reversible_blocks( cfg.blocks_dir/config::reversible_blocks_dir_name,
         cfg.read_only ? database::read_only : database::read_write,
         cfg.reversible_cache_size ),
@@ -220,6 +227,7 @@ struct controller_impl {
       auto lh_block_num = log_head->block_num();
 
       db.commit( s->block_num );
+      hdb.commit( s->block_num );
 
       if( s->block_num <= lh_block_num ) {
 //         edump((s->block_num)("double call to on_irr"));
@@ -277,8 +285,10 @@ struct controller_impl {
 
             // if the irreverible log is played without undo sessions enabled, we need to sync the
             // revision ordinal to the appropriate expected value here.
-            if( self.skip_db_sessions( controller::block_status::irreversible ) )
+            if( self.skip_db_sessions( controller::block_status::irreversible ) ) {
                db.set_revision(head->block_num);
+               hdb.set_revision(head->block_num);
+            }
 
             int rev = 0;
             while( auto obj = reversible_blocks.find<reversible_block_object,by_num>(head->block_num+1) ) {
@@ -322,6 +332,7 @@ struct controller_impl {
       }
       while( db.revision() > head->block_num ) {
          db.undo();
+         hdb.undo();
       }
 
    }
@@ -330,6 +341,7 @@ struct controller_impl {
       pending.reset();
 
       db.flush();
+      hdb.flush();
       reversible_blocks.flush();
    }
 
@@ -367,6 +379,9 @@ struct controller_impl {
                    ("rev", db.revision())("head_block", self.head_block_num()));
                    */
       });
+      hdb.with_write_lock([&] {
+         hdb.undo_all();
+      });
    }
 
    /**
@@ -389,6 +404,7 @@ struct controller_impl {
       head->block = std::make_shared<signed_block>(genheader.header);
       fork_db.set( head );
       db.set_revision( head->block_num );
+      hdb.set_revision( head->block_num );
 
       initialize_database();
    }
@@ -605,8 +621,11 @@ struct controller_impl {
    transaction_trace_ptr push_scheduled_transaction( const generated_transaction_object& gto, fc::time_point deadline, uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
    { try {
       maybe_session undo_session;
-      if ( !self.skip_db_sessions() )
-         undo_session = maybe_session(db);
+      maybe_session hundo_session;
+      if ( !self.skip_db_sessions() ) {
+         undo_session  = maybe_session(db);
+         hundo_session = maybe_session(hdb);
+      }
 
       auto gtrx = generated_transaction(gto);
 
@@ -641,6 +660,7 @@ struct controller_impl {
          emit( self.accepted_transaction, trx );
          emit( self.applied_transaction, trace );
          undo_session.squash();
+         hundo_session.squash();
          return trace;
       }
 
@@ -676,6 +696,7 @@ struct controller_impl {
 
          trx_context.squash();
          undo_session.squash();
+         hundo_session.squash();
 
          restore.cancel();
 
@@ -700,6 +721,7 @@ struct controller_impl {
             emit( self.accepted_transaction, trx );
             emit( self.applied_transaction, trace );
             undo_session.squash();
+            hundo_session.squash();
             return trace;
          }
          trace->elapsed = fc::time_point::now() - trx_context.start;
@@ -738,6 +760,7 @@ struct controller_impl {
          emit( self.applied_transaction, trace );
 
          undo_session.squash();
+         hundo_session.squash();
       } else {
          emit( self.accepted_transaction, trx );
          emit( self.applied_transaction, trace );
@@ -888,9 +911,9 @@ struct controller_impl {
          EOS_ASSERT( db.revision() == head->block_num, database_exception, "db revision is not on par with head block",
                      ("db.revision()", db.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
 
-         pending.emplace(maybe_session(db));
+         pending.emplace(maybe_session(db), maybe_session(hdb));
       } else {
-         pending.emplace(maybe_session());
+         pending.emplace(maybe_session(), maybe_session());
       }
 
       pending->_block_status = s;
@@ -1402,6 +1425,8 @@ void controller::startup() {
 
 chainbase::database& controller::db()const { return my->db; }
 
+chainbase::database& controller::hdb()const { return my->hdb; }
+
 fork_database& controller::fork_db()const { return my->fork_db; }
 
 
@@ -1865,6 +1890,10 @@ void controller::validate_db_available_size() const {
    const auto free = db().get_segment_manager()->get_free_memory();
    const auto guard = my->conf.state_guard_size;
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
+
+   const auto hfree = hdb().get_segment_manager()->get_free_memory();
+   const auto hguard = my->conf.history_guard_size;
+   EOS_ASSERT(hfree >= hguard, database_guard_exception, "history database free: ${f}, hguard size: ${g}", ("f", hfree)("g",hguard));
 }
 
 void controller::validate_reversible_available_size() const {

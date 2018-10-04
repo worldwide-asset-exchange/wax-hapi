@@ -57,8 +57,11 @@ namespace eosio { namespace chain {
             flat_set<public_key_type> key_blacklist;
             path                     blocks_dir             =  chain::config::default_blocks_dir_name;
             path                     state_dir              =  chain::config::default_state_dir_name;
+            path                     history_dir            =  chain::config::default_history_dir_name;
             uint64_t                 state_size             =  chain::config::default_state_size;
             uint64_t                 state_guard_size       =  chain::config::default_state_guard_size;
+            uint64_t                 history_size           =  chain::config::default_history_size;
+            uint64_t                 history_guard_size     =  chain::config::default_history_guard_size;
             uint64_t                 reversible_cache_size  =  chain::config::default_reversible_cache_size;
             uint64_t                 reversible_guard_size  =  chain::config::default_reversible_guard_size;
             bool                     read_only              =  false;
@@ -147,6 +150,7 @@ namespace eosio { namespace chain {
          void push_confirmation( const header_confirmation& c );
 
          chainbase::database& db()const;
+         chainbase::database& hdb()const;
 
          fork_database& fork_db()const;
 

@@ -217,6 +217,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Override default maximum ABI serialization time allowed in ms")
          ("chain-state-db-size-mb", bpo::value<uint64_t>()->default_value(config::default_state_size / (1024  * 1024)), "Maximum size (in MiB) of the chain state database")
          ("chain-state-db-guard-size-mb", bpo::value<uint64_t>()->default_value(config::default_state_guard_size / (1024  * 1024)), "Safely shut down node when free space remaining in the chain state database drops below this size (in MiB).")
+         ("history-dir", bpo::value<std::string>(), "Directory containing history data")
+         ("history-state-db-size-mb", bpo::value<uint64_t>()->default_value(config::default_history_size / (1024  * 1024)), "Maximum size (in MiB) of the history state database")
+         ("history-state-db-guard-size-mb", bpo::value<uint64_t>()->default_value(config::default_history_guard_size / (1024  * 1024)), "Safely shut down node when free space remaining in the history state database drops below this size (in MiB).")
          ("reversible-blocks-db-size-mb", bpo::value<uint64_t>()->default_value(config::default_reversible_cache_size / (1024  * 1024)), "Maximum size (in MiB) of the reversible blocks database")
          ("reversible-blocks-db-guard-size-mb", bpo::value<uint64_t>()->default_value(config::default_reversible_guard_size / (1024  * 1024)), "Safely shut down node when free space remaining in the reverseible blocks database drops below this size (in MiB).")
          ("contracts-console", bpo::bool_switch()->default_value(false),
@@ -407,6 +410,24 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if( options.count( "chain-state-db-guard-size-mb" ))
          my->chain_config->state_guard_size = options.at( "chain-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
+
+      if( options.count( "history-dir" ) ) {
+        // Workaround for 10+ year old Boost defect
+        // See https://svn.boost.org/trac10/ticket/8535
+        // Should be .as<bfs::path>() but paths with escaped spaces break bpo e.g.
+        // std::exception::what: the argument ('/path/with/white\ space') for option '--history-dir' is invalid
+        auto workaround = options["history-dir"].as<std::string>();
+        bfs::path h_dir = workaround;
+        if( h_dir.is_relative() )
+           h_dir = bfs::current_path() / h_dir;
+        my->chain_config->history_dir = h_dir / config::default_history_dir_name;
+      }
+
+      if( options.count( "history-state-db-size-mb" ))
+         my->chain_config->history_size = options.at( "history-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
+
+      if( options.count( "history-state-db-guard-size-mb" ))
+         my->chain_config->history_guard_size = options.at( "history-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
 
       if( options.count( "reversible-blocks-db-size-mb" ))
          my->chain_config->reversible_cache_size =
