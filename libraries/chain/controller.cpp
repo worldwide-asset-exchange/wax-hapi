@@ -72,11 +72,12 @@ class maybe_session {
 };
 
 struct pending_state {
-   pending_state( maybe_session&& s, maybe_session&& h )
-   :_db_session( move(s) ), _hdb_session( move(h) ) {}
+   pending_state( maybe_session&& s, maybe_session&& h, maybe_session&& hi )
+   :_db_session( move(s) ), _hdb_session( move(h) ), _hidb_session( move(hi) ) {}
 
    maybe_session                      _db_session;
    maybe_session                      _hdb_session;
+   maybe_session                      _hidb_session;
 
    block_state_ptr                    _pending_block_state;
 
@@ -89,6 +90,7 @@ struct pending_state {
    void push() {
       _db_session.push();
       _hdb_session.push();
+      _hidb_session.push();
    }
 };
 
@@ -96,6 +98,7 @@ struct controller_impl {
    controller&                    self;
    chainbase::database            db;
    chainbase::database            hdb;
+   chainbase::database            hidb;
    chainbase::database            reversible_blocks; ///< a special database to persist blocks that have successfully been applied but are still reversible
    block_log                      blog;
    optional<pending_state>        pending;
@@ -139,7 +142,7 @@ struct controller_impl {
       head = prev;
       db.undo();
       hdb.undo();
-
+      hidb.undo();
    }
 
 
@@ -155,6 +158,9 @@ struct controller_impl {
     hdb( cfg.history_dir,
         database::read_write,
         cfg.history_size ),
+    hidb( cfg.history_index_dir,
+        database::read_write,
+        cfg.history_index_size ),
     reversible_blocks( cfg.blocks_dir/config::reversible_blocks_dir_name,
         cfg.read_only ? database::read_only : database::read_write,
         cfg.reversible_cache_size ),
@@ -228,6 +234,7 @@ struct controller_impl {
 
       db.commit( s->block_num );
       hdb.commit( s->block_num );
+      hidb.commit( s->block_num );
 
       if( s->block_num <= lh_block_num ) {
 //         edump((s->block_num)("double call to on_irr"));
@@ -288,6 +295,7 @@ struct controller_impl {
             if( self.skip_db_sessions( controller::block_status::irreversible ) ) {
                db.set_revision(head->block_num);
                hdb.set_revision(head->block_num);
+               hidb.set_revision(head->block_num);
             }
 
             int rev = 0;
@@ -333,6 +341,7 @@ struct controller_impl {
       while( db.revision() > head->block_num ) {
          db.undo();
          hdb.undo();
+         hidb.undo();
       }
 
    }
@@ -342,6 +351,7 @@ struct controller_impl {
 
       db.flush();
       hdb.flush();
+      hidb.flush();
       reversible_blocks.flush();
    }
 
@@ -382,6 +392,9 @@ struct controller_impl {
       hdb.with_write_lock([&] {
          hdb.undo_all();
       });
+      hidb.with_write_lock([&] {
+         hidb.undo_all();
+      });
    }
 
    /**
@@ -405,6 +418,7 @@ struct controller_impl {
       fork_db.set( head );
       db.set_revision( head->block_num );
       hdb.set_revision( head->block_num );
+      hidb.set_revision( head->block_num );
 
       initialize_database();
    }
@@ -622,9 +636,11 @@ struct controller_impl {
    { try {
       maybe_session undo_session;
       maybe_session hundo_session;
+      maybe_session hiundo_session;
       if ( !self.skip_db_sessions() ) {
          undo_session  = maybe_session(db);
          hundo_session = maybe_session(hdb);
+         hiundo_session = maybe_session(hidb);
       }
 
       auto gtrx = generated_transaction(gto);
@@ -661,6 +677,7 @@ struct controller_impl {
          emit( self.applied_transaction, trace );
          undo_session.squash();
          hundo_session.squash();
+         hiundo_session.squash();
          return trace;
       }
 
@@ -697,6 +714,7 @@ struct controller_impl {
          trx_context.squash();
          undo_session.squash();
          hundo_session.squash();
+         hiundo_session.squash();
 
          restore.cancel();
 
@@ -911,9 +929,9 @@ struct controller_impl {
          EOS_ASSERT( db.revision() == head->block_num, database_exception, "db revision is not on par with head block",
                      ("db.revision()", db.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
 
-         pending.emplace(maybe_session(db), maybe_session(hdb));
+         pending.emplace(maybe_session(db), maybe_session(hdb), maybe_session(hidb));
       } else {
-         pending.emplace(maybe_session(), maybe_session());
+         pending.emplace(maybe_session(), maybe_session(), maybe_session());
       }
 
       pending->_block_status = s;
@@ -1426,6 +1444,7 @@ void controller::startup() {
 chainbase::database& controller::db()const { return my->db; }
 
 chainbase::database& controller::hdb()const { return my->hdb; }
+chainbase::database& controller::hidb()const { return my->hidb; }
 
 fork_database& controller::fork_db()const { return my->fork_db; }
 
@@ -1894,6 +1913,10 @@ void controller::validate_db_available_size() const {
    const auto hfree = hdb().get_segment_manager()->get_free_memory();
    const auto hguard = my->conf.history_guard_size;
    EOS_ASSERT(hfree >= hguard, database_guard_exception, "history database free: ${f}, hguard size: ${g}", ("f", hfree)("g",hguard));
+
+   const auto hifree = hidb().get_segment_manager()->get_free_memory();
+   const auto higuard = my->conf.history_index_guard_size;
+   EOS_ASSERT(hifree >= higuard, database_guard_exception, "history index database free: ${f}, higuard size: ${g}", ("f", hifree)("g",higuard));
 }
 
 void controller::validate_reversible_available_size() const {

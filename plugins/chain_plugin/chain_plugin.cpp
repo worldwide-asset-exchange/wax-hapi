@@ -220,6 +220,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("history-dir", bpo::value<std::string>(), "Directory containing history data")
          ("history-state-db-size-mb", bpo::value<uint64_t>()->default_value(config::default_history_size / (1024  * 1024)), "Maximum size (in MiB) of the history state database")
          ("history-state-db-guard-size-mb", bpo::value<uint64_t>()->default_value(config::default_history_guard_size / (1024  * 1024)), "Safely shut down node when free space remaining in the history state database drops below this size (in MiB).")
+         ("history-index-dir", bpo::value<std::string>(), "Directory containing history index data")
+         ("history-index-state-db-size-mb", bpo::value<uint64_t>()->default_value(config::default_history_size / (1024  * 1024)), "Maximum size (in MiB) of the history index state database")
+         ("history-index-state-db-guard-size-mb", bpo::value<uint64_t>()->default_value(config::default_history_guard_size / (1024  * 1024)), "Safely shut down node when free space remaining in the history index state database drops below this size (in MiB).")
          ("reversible-blocks-db-size-mb", bpo::value<uint64_t>()->default_value(config::default_reversible_cache_size / (1024  * 1024)), "Maximum size (in MiB) of the reversible blocks database")
          ("reversible-blocks-db-guard-size-mb", bpo::value<uint64_t>()->default_value(config::default_reversible_guard_size / (1024  * 1024)), "Safely shut down node when free space remaining in the reverseible blocks database drops below this size (in MiB).")
          ("contracts-console", bpo::bool_switch()->default_value(false),
@@ -428,6 +431,21 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if( options.count( "history-state-db-guard-size-mb" ))
          my->chain_config->history_guard_size = options.at( "history-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
+
+      if( options.count( "history-index-dir" ) ) {
+        auto workaround = options["history-index-dir"].as<std::string>();
+        bfs::path hi_dir = workaround;
+        if( hi_dir.is_relative() )
+           hi_dir = bfs::current_path() / hi_dir;
+        my->chain_config->history_index_dir = hi_dir / config::default_history_index_dir_name;
+      }
+
+      if( options.count( "history-index-state-db-size-mb" ))
+         my->chain_config->history_index_size = options.at( "history-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
+
+      if( options.count( "history-index-state-db-guard-size-mb" ))
+         my->chain_config->history_index_guard_size = options.at( "history-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
+
 
       if( options.count( "reversible-blocks-db-size-mb" ))
          my->chain_config->reversible_cache_size =

@@ -66,6 +66,7 @@ namespace eosio { namespace chain {
          transaction_id_type           id;
          optional<chainbase::database::session>  undo_session;
          optional<chainbase::database::session>  hundo_session;
+         optional<chainbase::database::session>  hiundo_session;
          transaction_trace_ptr         trace;
          fc::time_point                start;
 

@@ -206,7 +206,8 @@ namespace eosio {
 
          void record_account_action( account_name n, const base_action_trace& act ) {
             auto& chain = chain_plug->chain();
-            auto& db = chain.hdb();
+            auto& db = chain.hidb();
+            //auto& hdb = chain.hdb();
 
             const auto& idx = db.get_index<account_history_index, by_account_action_seq>();
             auto itr = idx.lower_bound( boost::make_tuple( name(n.value+1), 0 ) );
@@ -227,7 +228,9 @@ namespace eosio {
 
          void on_system_action( const action_trace& at ) {
             auto& chain = chain_plug->chain();
-            auto& db = chain.hdb();
+            auto& db = chain.hidb();
+            //auto& hdb = chain.hdb();
+
             if( at.act.name == N(newaccount) )
             {
                const auto create = at.act.data_as<chain::newaccount>();
@@ -256,9 +259,10 @@ namespace eosio {
             if( filter( at ) ) {
                //idump((fc::json::to_pretty_string(at)));
                auto& chain = chain_plug->chain();
-               auto& db = chain.hdb();
+               //auto& db = chain.hidb();
+               auto& hdb = chain.hdb();
 
-               db.create<action_history_object>( [&]( auto& aho ) {
+               hdb.create<action_history_object>( [&]( auto& aho ) {
                   auto ps = fc::raw::pack_size( at );
                   aho.packed_action_trace.resize(ps);
                   datastream<char*> ds( aho.packed_action_trace.data(), ps );
@@ -344,10 +348,10 @@ namespace eosio {
          EOS_ASSERT( my->chain_plug, chain::missing_chain_plugin_exception, ""  );
          auto& chain = my->chain_plug->chain();
 
-         chain.hdb().add_index<account_history_index>();
+         chain.hidb().add_index<account_history_index>();
          chain.hdb().add_index<action_history_index>();
-         chain.hdb().add_index<account_control_history_multi_index>();
-         chain.hdb().add_index<public_key_history_multi_index>();
+         chain.hidb().add_index<account_control_history_multi_index>();
+         chain.hidb().add_index<public_key_history_multi_index>();
 
          my->applied_transaction_connection.emplace(
                chain.applied_transaction.connect( [&]( const transaction_trace_ptr& p ) {
@@ -370,10 +374,11 @@ namespace eosio {
       read_only::get_actions_result read_only::get_actions( const read_only::get_actions_params& params )const {
          edump((params));
         auto& chain = history->chain_plug->chain();
-        const auto& db = chain.hdb();
+        const auto& hdb  = chain.hdb();
+        const auto& hidb = chain.hidb();
         const auto abi_serializer_max_time = history->chain_plug->get_abi_serializer_max_time();
 
-        const auto& idx = db.get_index<account_history_index, by_account_action_seq>();
+        const auto& idx = hidb.get_index<account_history_index, by_account_action_seq>();
 
         int32_t start = 0;
         int32_t pos = params.pos ? *params.pos : -1;
@@ -415,7 +420,7 @@ namespace eosio {
         get_actions_result result;
         result.last_irreversible_block = chain.last_irreversible_block_num();
         while( start_itr != end_itr ) {
-           const auto& a = db.get<action_history_object, by_action_sequence_num>( start_itr->action_sequence_num );
+           const auto& a = hdb.get<action_history_object, by_action_sequence_num>( start_itr->action_sequence_num );
            fc::datastream<const char*> ds( a.packed_action_trace.data(), a.packed_action_trace.size() );
            action_trace t;
            fc::raw::unpack( ds, t );
@@ -561,7 +566,7 @@ namespace eosio {
 
       read_only::get_key_accounts_results read_only::get_key_accounts(const get_key_accounts_params& params) const {
          std::set<account_name> accounts;
-         const auto& db = history->chain_plug->chain().hdb();
+         const auto& db = history->chain_plug->chain().hidb();
          const auto& pub_key_idx = db.get_index<public_key_history_multi_index, by_pub_key>();
          auto range = pub_key_idx.equal_range( params.public_key );
          for (auto obj = range.first; obj != range.second; ++obj)
@@ -571,7 +576,7 @@ namespace eosio {
 
       read_only::get_controlled_accounts_results read_only::get_controlled_accounts(const get_controlled_accounts_params& params) const {
          std::set<account_name> accounts;
-         const auto& db = history->chain_plug->chain().hdb();
+         const auto& db = history->chain_plug->chain().hidb();
          const auto& account_control_idx = db.get_index<account_control_history_multi_index, by_controlling>();
          auto range = account_control_idx.equal_range( params.controlling_account );
          for (auto obj = range.first; obj != range.second; ++obj)
