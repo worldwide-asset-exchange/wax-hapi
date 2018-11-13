@@ -300,6 +300,8 @@ namespace eosio { namespace chain {
          friend class transaction_context;
 
          chainbase::database& mutable_db()const;
+         chainbase::database& mutable_hdb()const;
+         chainbase::database& mutable_hidb()const;
 
          std::unique_ptr<controller_impl> my;
 
