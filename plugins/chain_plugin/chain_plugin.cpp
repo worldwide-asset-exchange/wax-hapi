@@ -445,10 +445,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if( options.count( "history-index-state-db-size-mb" ))
-         my->chain_config->history_index_size = options.at( "history-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
+         my->chain_config->history_index_size = options.at( "history-index-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
 
       if( options.count( "history-index-state-db-guard-size-mb" ))
-         my->chain_config->history_index_guard_size = options.at( "history-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
+         my->chain_config->history_index_guard_size = options.at( "history-index-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
 
 
       if( options.count( "reversible-blocks-db-size-mb" ))
