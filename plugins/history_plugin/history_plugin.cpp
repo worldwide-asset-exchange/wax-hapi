@@ -37,6 +37,7 @@ namespace eosio {
       uint32_t             block_num;
       block_timestamp_type block_time;
       transaction_id_type  trx_id;
+      uint8_t              use_count;
    };
    using account_history_id_type = account_history_object::id_type;
    using action_history_id_type  = action_history_object::id_type;
@@ -138,6 +139,7 @@ namespace eosio {
    class history_plugin_impl {
       public:
          bool bypass_filter = false;
+         uint64_t history_per_account = 1000;
          std::set<filter_entry> filter_on;
          std::set<filter_entry> filter_out;
          chain_plugin*          chain_plug = nullptr;
@@ -207,6 +209,7 @@ namespace eosio {
          void record_account_action( account_name n, const base_action_trace& act ) {
             auto& chain = chain_plug->chain();
             chainbase::database& db = const_cast<chainbase::database&>( chain.hidb() ); // Override read-only access to state DB (highly unrecommended practice!)
+            chainbase::database& hdb = const_cast<chainbase::database&>( chain.hdb() ); // Override read-only access to state DB (highly unrecommended practice!)
 
             const auto& idx = db.get_index<account_history_index, by_account_action_seq>();
             auto itr = idx.lower_bound( boost::make_tuple( name(n.value+1), 0 ) );
@@ -223,6 +226,29 @@ namespace eosio {
               aho.account_sequence_num = asn;
             });
             //idump((a.account)(a.action_sequence_num)(a.action_sequence_num));
+
+            if ( asn >= history_per_account ) {
+              auto ahi_itr = idx.lower_bound( boost::make_tuple( name(n.value+1), 0 ) );
+
+              std::advance(ahi_itr, -1*(history_per_account+1));
+
+              const auto& target = hdb.get<action_history_object, by_action_sequence_num>(ahi_itr->action_sequence_num);
+              hdb.modify(target, [&](action_history_object& aho){
+                aho.use_count--;
+              });
+
+              const auto& aho_idx = hdb.get_index<action_history_index, by_action_sequence_num>();
+              auto aho_itr = aho_idx.lower_bound(ahi_itr->action_sequence_num);
+
+              if (aho_itr->use_count == 0) {
+                auto& mutable_aho_idx = hdb.get_mutable_index<action_history_index>();
+                mutable_aho_idx.remove(*aho_itr);
+              }
+
+              auto& mutable_idx = db.get_mutable_index<account_history_index>();
+              mutable_idx.remove(*ahi_itr);
+            }
+
          }
 
          void on_system_action( const action_trace& at ) {
@@ -258,21 +284,25 @@ namespace eosio {
                auto& chain = chain_plug->chain();
                chainbase::database& hdb = const_cast<chainbase::database&>( chain.hdb() ); // Override read-only access to state DB (highly unrecommended practice!)
 
+               uint8_t use_count = 0;
+               auto aset = account_set( at );
+               for( auto a : aset ) {
+                  record_account_action( a, at );
+                  use_count++;
+               }
+
                hdb.create<action_history_object>( [&]( auto& aho ) {
                   auto ps = fc::raw::pack_size( at );
                   aho.packed_action_trace.resize(ps);
                   datastream<char*> ds( aho.packed_action_trace.data(), ps );
                   fc::raw::pack( ds, at );
                   aho.action_sequence_num = at.receipt.global_sequence;
-                  aho.block_num = chain.pending_block_state()->block_num;
+                  aho.block_num  = chain.pending_block_state()->block_num;
                   aho.block_time = chain.pending_block_time();
                   aho.trx_id     = at.trx_id;
+                  aho.use_count  = use_count;
                });
 
-               auto aset = account_set( at );
-               for( auto a : aset ) {
-                  record_account_action( a, at );
-               }
             }
             if( at.receipt.receiver == chain::config::system_account_name )
                on_system_action( at );
@@ -309,6 +339,9 @@ namespace eosio {
             ("filter-out,F", bpo::value<vector<string>>()->composing(),
              "Do not track actions which match receiver:action:actor. Action and Actor both blank excludes all from Reciever. Actor blank excludes all from reciever:action. Receiver may not be blank.")
             ;
+            cfg.add_options()
+            ("history-per-account", bpo::value<uint64_t>()->default_value(1000), "Maximum history limit, i.e., the number of newest history actions stored, per account.")
+            ;
    }
 
    void history_plugin::plugin_initialize(const variables_map& options) {
@@ -342,6 +375,9 @@ namespace eosio {
                my->filter_out.insert( fe );
             }
          }
+
+         if( options.count( "history-per-account" ))
+           my->history_per_account = options.at( "history-per-account" ).as<uint64_t>();
 
          my->chain_plug = app().find_plugin<chain_plugin>();
          EOS_ASSERT( my->chain_plug, chain::missing_chain_plugin_exception, ""  );
