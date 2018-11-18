@@ -228,27 +228,21 @@ namespace eosio {
             //idump((a.account)(a.action_sequence_num)(a.action_sequence_num));
 
             if ( asn >= history_per_account ) {
-              auto ahi_itr = idx.lower_bound( boost::make_tuple( name(n.value+1), 0 ) );
-
-              std::advance(ahi_itr, -1*(history_per_account+1));
+              auto ahi_itr = idx.lower_bound( boost::make_tuple( n, asn - history_per_account ) );
 
               const auto& target = hdb.get<action_history_object, by_action_sequence_num>(ahi_itr->action_sequence_num);
-              hdb.modify(target, [&](action_history_object& aho){
-                aho.use_count--;
-              });
-
-              const auto& aho_idx = hdb.get_index<action_history_index, by_action_sequence_num>();
-              auto aho_itr = aho_idx.lower_bound(ahi_itr->action_sequence_num);
-
-              if (aho_itr->use_count == 0) {
+              if (target.use_count == 1) {
                 auto& mutable_aho_idx = hdb.get_mutable_index<action_history_index>();
-                mutable_aho_idx.remove(*aho_itr);
+                mutable_aho_idx.remove(target);
+              } else {
+                hdb.modify(target, [&](action_history_object& aho){
+                  aho.use_count--;
+                });
               }
 
               auto& mutable_idx = db.get_mutable_index<account_history_index>();
               mutable_idx.remove(*ahi_itr);
             }
-
          }
 
          void on_system_action( const action_trace& at ) {
