@@ -514,7 +514,7 @@ namespace eosio {
          bool in_history = (itr != idx.end() && txn_id_matched(itr->trx_id) );
 
          if( !in_history && !p.block_num_hint ) {
-            EOS_THROW(tx_not_found, "Transaction ${id} not found in history and no block hint was given", ("id",p.id));
+            EOS_THROW(chain::plugin_range_not_satisfiable, "Transaction ${id} not found in limited history and no block hint was given", ("id",p.id));
          }
 
          get_transaction_result result;
