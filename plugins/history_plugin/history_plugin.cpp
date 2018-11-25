@@ -516,6 +516,9 @@ namespace eosio {
          if( !in_history && !p.block_num_hint ) {
             EOS_THROW(chain::plugin_range_not_satisfiable, "Transaction ${id} not found in limited history and no block hint was given", ("id",p.id));
          }
+         if (!in_history && p.block_num_hint == 0) {  // Pro-tip, your tx is probable not in block 0... default param?
+            EOS_THROW(chain::plugin_range_not_satisfiable, "Transaction ${id} not found in limited history and block hint of 0 was given", ("id",p.id));
+         }
 
          get_transaction_result result;
 
