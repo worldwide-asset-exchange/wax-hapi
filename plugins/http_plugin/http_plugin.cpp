@@ -348,8 +348,7 @@ namespace eosio {
 
    void http_plugin::set_program_options(options_description&, options_description& cfg) {
       my->mangle_option_names();
-      if(current_http_plugin_defaults.default_unix_socket_path.length())
-         cfg.add_options()
+       cfg.add_options()
             (my->unix_socket_path_option_name.c_str(), bpo::value<string>()->default_value(current_http_plugin_defaults.default_unix_socket_path),
              "The filename (relative to data-dir) to create a unix socket for HTTP RPC; set blank to disable.");
 
