@@ -1,14 +1,33 @@
 {
+    "eosio-build-unpinned":
+    {
+        "pipeline-branch": "protocol-features-sync-nodes"
+    },
     "eosio-lrt":
     {
-        "pipeline-branch": "legacy-os"
+        "pipeline-branch": "protocol-features-sync-nodes"
     },
-    "eosio-nightly-builds":
+    "eos-multiversion-tests":
     {
-        "pipeline-branch": "legacy-os"
+        "pipeline-branch": "protocol-features-sync-nodes",
+        "configuration":
+        [
+            "170=v1.7.0"
+        ]
     },
-    "eosio-base-images":
+    "eosio-docker-builds":
     {
-        "pipeline-branch": "release/1.7.x"
+        "environment":
+        {
+            "BUILDER_TAG": "v1.8.0"
+        }
+    },
+    "eosio-sync-tests":
+    {
+        "environment":
+        {
+            "SKIP_PRE_V180": "true",
+            "SKIP_V180": "false"
+        }
     }
 }
