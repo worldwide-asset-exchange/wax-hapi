@@ -2810,7 +2810,8 @@ int main( int argc, char** argv ) {
               out << args ;//<< "\n";
 
               if( trace["block_num"].as_uint64() <= lib ) {
-                 dlog( "\r${m}", ("m",out.str()) );
+                 //dlog( "\r${m}", ("m",out.str()) );
+                 std::cout << out.str() << "\n";
               } else {
                  wlog( "\r${m}", ("m",out.str()) );
               }
