@@ -39,6 +39,7 @@ function usage() {
   -s NAME     Core Symbol Name <1-7 characters> (default: SYS)
   -b DIR      Use pre-built boost in DIR
   -i DIR      Directory to use for installing dependencies & EOSIO (default: $HOME)
+  -r KEY      Public root key for eosio account
   -y          Noninteractive mode (answers yes to every prompt)
   -c          Enable Code Coverage
   -d          Generate Doxygen
@@ -49,7 +50,7 @@ function usage() {
 
 TIME_BEGIN=$( date -u +%s )
 if [ $# -ne 0 ]; then
-   while getopts "o:s:b:i:ycdhmPf" opt; do
+   while getopts "o:s:b:i:r:ycdhmPf" opt; do
       case "${opt}" in
          o )
             options=( "Debug" "Release" "RelWithDebInfo" "MinSizeRel" )
@@ -95,6 +96,9 @@ if [ $# -ne 0 ]; then
          ;;
          h )
             usage
+         ;;
+         r )
+            PUBLIC_ROOT_KEY=-DEOSIO_ROOT_KEY=${OPTARG}
          ;;
          ? )
             echo "Invalid Option!" 1>&2
@@ -222,33 +226,31 @@ fi
 $ENABLE_DOXYGEN && LOCAL_CMAKE_FLAGS="-DBUILD_DOXYGEN='${DOXYGEN}' ${LOCAL_CMAKE_FLAGS}"
 $ENABLE_COVERAGE_TESTING && LOCAL_CMAKE_FLAGS="-DENABLE_COVERAGE_TESTING='${ENABLE_COVERAGE_TESTING}' ${LOCAL_CMAKE_FLAGS}"
 
-execute bash -c "$CMAKE -DCMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}' -DCORE_SYMBOL_NAME='${CORE_SYMBOL_NAME}' -DOPENSSL_ROOT_DIR='${OPENSSL_ROOT_DIR}' -DCMAKE_INSTALL_PREFIX='${EOSIO_INSTALL_DIR}' ${LOCAL_CMAKE_FLAGS} '${REPO_ROOT}'"
+execute bash -c "$CMAKE -DCMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}' -DCORE_SYMBOL_NAME='${CORE_SYMBOL_NAME}' -DOPENSSL_ROOT_DIR='${OPENSSL_ROOT_DIR}' -DCMAKE_INSTALL_PREFIX='${EOSIO_INSTALL_DIR}' ${PUBLIC_ROOT_KEY} ${LOCAL_CMAKE_FLAGS} '${REPO_ROOT}'"
 execute make -j$JOBS
 execute cd $REPO_ROOT 1>/dev/null
 
 TIME_END=$(( $(date -u +%s) - $TIME_BEGIN ))
 
-echo " _______  _______  _______ _________ _______"
-echo "(  ____ \(  ___  )(  ____   __   __ (  ___  )"
-echo "| (    \/| (   ) || (    \/   ) (   | (   ) |"
-echo "| (__    | |   | || (_____    | |   | |   | |"
-echo "|  __)   | |   | |(_____  )   | |   | |   | |"
-echo "| (      | |   | |      ) |   | |   | |   | |"
-echo "| (____/\| (___) |/\____) |___) (___| (___) |"
-echo "(_______/(_______)\_______)\_______/(_______)"
-echo "=============================================${COLOR_NC}"
+printf "\n\n${COLOR_RED}\t __      __  _____  ____  ___ \n"
+printf "\t/  \    /  \/  _  \ \   \/  / \n"
+printf "\t\   \/\/   /  /_\  \ \     / \n"
+printf "\t \        /    |    \/     \ \n"
+printf "\t  \__/\  /\____|__  /___/\  \ \n"
+printf "\t       \/         \/      \_/ \n${COLOR_NC}"
 
-echo "${COLOR_GREEN}EOSIO has been successfully built. $(($TIME_END/3600)):$(($TIME_END%3600/60)):$(($TIME_END%60))"
+echo "${COLOR_GREEN}\nWAX has been successfully built. $(($TIME_END/3600)):$(($TIME_END%3600/60)):$(($TIME_END%60))"
 echo "${COLOR_GREEN}You can now install using: ${SCRIPT_DIR}/eosio_install.sh${COLOR_NC}"
 echo "${COLOR_YELLOW}Uninstall with: ${SCRIPT_DIR}/eosio_uninstall.sh${COLOR_NC}"
 
-echo ""
-echo "${COLOR_CYAN}If you wish to perform tests to ensure functional code:${COLOR_NC}"
-if $ENABLE_MONGO; then
-   echo "${BIN_DIR}/mongod --dbpath ${MONGODB_DATA_DIR} -f ${MONGODB_CONF} --logpath ${MONGODB_LOG_DIR}/mongod.log &"
-   PATH_TO_USE=" PATH=\$PATH:$OPT_DIR/mongodb/bin"
-fi
-echo "cd ${BUILD_DIR} && ${PATH_TO_USE} make test" # PATH is set as currently 'mongo' binary is required for the mongodb test
+printf "\\t\nFor more information:\\n"
+printf "\\tWAX website: https://wax.io\\n"
+printf "\\tDevelopment: https://github.com/worldwide-asset-exchange\\n"
+printf "\\tWAX Telegram Channel: https://t.me/wax_io\\n"
+printf "\\tWAX Blog: https://wax.io/blog\\n"
+printf "\\tWAX Medium Page: https://medium.com/wax-io\\n"
+printf "\\tWAX YouTube Channel: https://www.youtube.com/c/WAXio\\n"
+printf "\\tWAX Twitter Handle: https://twitter.com/WAX_io\\n"
+printf "\\tWAX Facebook Channel: https://www.facebook.com/WAX.io.Community\\n\\n\\n"
 
-echo ""
 resources
