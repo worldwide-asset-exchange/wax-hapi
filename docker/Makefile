@@ -21,12 +21,12 @@ get_hapi_eos: make_deps_dir
     git submodule update --init --recursive
 
 
-build-hapi-image: get_hapi_eos
+build-image: get_hapi_eos
 	docker build \
         --build-arg deps_dir=$(DEPS_DIR) \
         -t waxteam/hapi .
 
 
-push-hapi-image:
+push-image:
 	docker tag waxteam/hapi waxteam/hapi:latest
 	docker push waxteam/hapi:latest
