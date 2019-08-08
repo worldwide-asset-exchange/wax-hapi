@@ -3,7 +3,7 @@ HAPI_LIMITED_REPOSITORY = mauri-opskins
 
 DEPS_DIR=./tmp
 
-.PHONY: build-hapi-image push-hapi-image
+.PHONY: build-image push-image
 
 make_deps_dir:
 	@mkdir -p $(DEPS_DIR)
