@@ -57,10 +57,10 @@ RUN apt-get update && \
         libcurl4-gnutls-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/local/hapi-limited/bin   /usr/local/wax-blockchain/bin
-COPY --from=builder /usr/local/hapi-limited/etc   /usr/local/wax-blockchain/etc
-COPY --from=builder /usr/local/hapi-limited/share /usr/local/wax-blockchain/share
-COPY --from=builder /usr/local/hapi-limited/var   /usr/local/wax-blockchain/var
+COPY --from=builder /usr/local/hapi-limited/bin   /usr/local/hapi-limited/bin
+COPY --from=builder /usr/local/hapi-limited/etc   /usr/local/hapi-limited/etc
+COPY --from=builder /usr/local/hapi-limited/share /usr/local/hapi-limited/share
+COPY --from=builder /usr/local/hapi-limited/var   /usr/local/hapi-limited/var
 
 ENV EOSIO_ROOT=/usr/local/hapi-limited
 ENV PATH="/usr/local/hapi-limited/bin:${PATH}"
