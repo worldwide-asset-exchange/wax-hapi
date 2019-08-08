@@ -1,5 +1,5 @@
-BUILDER_VERSION = $(shell builder/get_version.sh)
-HAPI_LIMITED_REPOSITORY = mauri-opskins
+VERSION = wax-1.8.1-1.0.0
+HAPI_LIMITED_REPOSITORY = worldwide-asset-exchange/wax-hapi.git
 
 DEPS_DIR=./tmp
 
@@ -12,7 +12,7 @@ make_deps_dir:
 get_hapi_eos: make_deps_dir
 	if [ ! -d $(DEPS_DIR)/hapi-limited ]; then \
        cd $(DEPS_DIR) && \
-       git clone -b hapi-limited git@github.com:$(HAPI_LIMITED_REPOSITORY)/eos.git --recursive hapi-limited; \
+       git clone -b hapi-limited git@github.com:$(HAPI_LIMITED_REPOSITORY) --recursive hapi-limited; \
     else \
        cd $(DEPS_DIR)/hapi-limited && \
        git fetch --all --tags && \
@@ -26,7 +26,8 @@ build-image: get_hapi_eos
         --build-arg deps_dir=$(DEPS_DIR) \
         -t waxteam/hapi .
 
-
 push-image:
+	docker tag waxteam/hapi waxteam/hapi:$(VERSION)
+	docker push waxteam/hapi:$(VERSION)
 	docker tag waxteam/hapi waxteam/hapi:latest
 	docker push waxteam/hapi:latest
