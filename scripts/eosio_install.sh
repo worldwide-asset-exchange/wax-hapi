@@ -40,7 +40,7 @@ cd $( dirname "${BASH_SOURCE[0]}" )/..
 
 [[ ! $NAME == "Ubuntu" ]] && set -i # Ubuntu doesn't support interactive mode since it uses dash
 
-[[ ! -f ${BUILD_DIR}/CMakeCache.txt ]] && printf "${COLOR_RED} Please run ${SCRIPT_DIR}/eosio_build.sh first!${COLOR_NC}" && exit 1
+[[ ! -f ${BUILD_DIR}/CMakeCache.txt ]] && printf "${COLOR_RED}Please run ${SCRIPT_DIR}/eosio_build.sh first!${COLOR_NC}" && exit 1
 
 echo "${COLOR_CYAN}====================================================================================="
 echo "========================== ${COLOR_WHITE}Starting EOSIO Installation${COLOR_CYAN} ==============================${COLOR_NC}"
@@ -60,4 +60,3 @@ printf "${COLOR_GREEN}WAX has been installed into ${CACHED_INSTALL_PATH}/bin${CO
 printf "\\n${COLOR_YELLOW}Uninstall with: wax_uninstall.sh${COLOR_NC}\\n"
 printf "==============================================================================================\\n\\n"
 resources
-
