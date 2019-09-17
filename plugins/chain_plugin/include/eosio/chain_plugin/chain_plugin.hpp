@@ -715,11 +715,11 @@ public:
    chain::chain_id_type get_chain_id() const;
    fc::microseconds get_abi_serializer_max_time() const;
 
-   static void handle_guard_exception(const chain::guard_exception& e);
+   void handle_guard_exception(const chain::guard_exception& e) const;
+
    static void handle_db_exhaustion();
-   static void handle_bad_alloc();
 private:
-   static void log_guard_exception(const chain::guard_exception& e);
+   void log_guard_exception(const chain::guard_exception& e) const;
 
    unique_ptr<class chain_plugin_impl> my;
 };

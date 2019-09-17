@@ -364,10 +364,7 @@ struct controller_impl {
    template<typename Signal, typename Arg>
    void emit( const Signal& s, Arg&& a ) {
       try {
-         s( std::forward<Arg>( a ));
-      } catch (std::bad_alloc& e) {
-         wlog( "std::bad_alloc" );
-         throw e;
+        s(std::forward<Arg>(a));
       } catch (boost::interprocess::bad_alloc& e) {
          wlog( "bad alloc" );
          throw e;
@@ -1539,17 +1536,13 @@ struct controller_impl {
                });
             in_trx_requiring_checks = true;
             push_transaction( onbtrx, fc::time_point::maximum(), self.get_global_properties().configuration.min_transaction_cpu_usage, true );
-         } catch( const std::bad_alloc& e ) {
-            elog( "on block transaction failed due to a std::bad_alloc" );
-            throw;
-         } catch( const boost::interprocess::bad_alloc& e ) {
+         } catch( const boost::interprocess::bad_alloc& e  ) {
             elog( "on block transaction failed due to a bad allocation" );
             throw;
          } catch( const fc::exception& e ) {
             wlog( "on block transaction failed, but shouldn't impact block generation, system contract needs update" );
             edump((e.to_detail_string()));
          } catch( ... ) {
-            elog( "on block transaction failed due to unknown exception" );
          }
 
          clear_expired_input_transactions();
