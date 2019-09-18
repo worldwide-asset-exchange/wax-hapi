@@ -51,6 +51,7 @@ $ sudo apt install ./eosio_1.8.4-1-ubuntu-18.04_amd64.deb
 ```sh
 $ wget https://github.com/eosio/eos/releases/download/v1.8.4/eosio_1.8.4-1-ubuntu-16.04_amd64.deb
 $ sudo apt install ./eosio_1.8.4-1-ubuntu-16.04_amd64.deb
+
 ```
 #### Ubuntu Package Uninstall
 ```sh
@@ -60,6 +61,7 @@ $ sudo apt remove eosio
 ```sh
 $ wget https://github.com/eosio/eos/releases/download/v1.8.4/eosio-1.8.4-1.el7.x86_64.rpm
 $ sudo yum install ./eosio-1.8.4-1.el7.x86_64.rpm
+
 ```
 #### Centos RPM Package Uninstall
 ```sh

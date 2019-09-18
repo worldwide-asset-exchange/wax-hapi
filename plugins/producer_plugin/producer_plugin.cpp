@@ -1598,7 +1598,10 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                      ++num_applied;
                   }
                } LOG_AND_DROP();
+<<<<<<< HEAD
             }
+=======
+>>>>>>> [KEW-1594] Upgrade to v1.8.3.
 
             itr = itr_next;
          }
@@ -1657,6 +1660,7 @@ bool producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
             break;
          }
 
+<<<<<<< HEAD
          auto e = _pending_incoming_transactions.front();
          _pending_incoming_transactions.pop_front();
          --pending_incoming_process_limit;
@@ -1687,14 +1691,44 @@ bool producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                // this failed our configured maximum transaction time, we don't want to replay it add it to a blacklist
                _blacklisted_transactions.insert(transaction_id_with_expiry{trx_id, expiration});
                num_failed++;
+=======
+         if( app().is_quiting() ) // db guard exception above in LOG_AND_DROP could have called app().quit()
+            return start_block_result::failed;
+         if (exhausted || preprocess_deadline <= fc::time_point::now()) {
+            return start_block_result::exhausted;
+         } else {
+            // attempt to apply any pending incoming transactions
+            _incoming_trx_weight = 0.0;
+
+            if (!_pending_incoming_transactions.empty()) {
+               fc_dlog(_log, "Processing ${n} pending transactions", ("n", _pending_incoming_transactions.size()));
+               while (orig_pending_txn_size && _pending_incoming_transactions.size()) {
+                  if (preprocess_deadline <= fc::time_point::now()) return start_block_result::exhausted;
+                  auto e = _pending_incoming_transactions.front();
+                  _pending_incoming_transactions.pop_front();
+                  --orig_pending_txn_size;
+                  process_incoming_transaction_async(std::get<0>(e), std::get<1>(e), std::get<2>(e));
+               }
+>>>>>>> [KEW-1594] Upgrade to v1.8.3.
             }
          } else {
             num_applied++;
          }
       } LOG_AND_DROP();
 
+<<<<<<< HEAD
       incoming_trx_weight += _incoming_defer_ratio;
       if (!pending_incoming_process_limit) incoming_trx_weight = 0.0;
+=======
+      } catch ( const guard_exception& e ) {
+         chain_plugin::handle_guard_exception(e);
+         return start_block_result::failed;
+      } catch ( std::bad_alloc& ) {
+         chain_plugin::handle_bad_alloc();
+      } catch ( boost::interprocess::bad_alloc& ) {
+         chain_plugin::handle_db_exhaustion();
+      }
+>>>>>>> [KEW-1594] Upgrade to v1.8.3.
 
       if( sch_itr_next == sch_idx.end() ) break;
       sch_itr = sch_idx.lower_bound( boost::make_tuple( next_delay_until, next_id ) );
