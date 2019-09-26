@@ -44,13 +44,13 @@ $ brew remove eosio
 
 #### Ubuntu 18.04 Package Install
 ```sh
-$ wget https://github.com/eosio/eos/releases/download/v1.8.3/eosio_1.8.3-1-ubuntu-18.04_amd64.deb
-$ sudo apt install ./eosio_1.8.3-1-ubuntu-18.04_amd64.deb
+$ wget https://github.com/eosio/eos/releases/download/v1.8.4/eosio_1.8.4-1-ubuntu-18.04_amd64.deb
+$ sudo apt install ./eosio_1.8.4-1-ubuntu-18.04_amd64.deb
 ```
 #### Ubuntu 16.04 Package Install
 ```sh
-$ wget https://github.com/eosio/eos/releases/download/v1.8.3/eosio_1.8.3-1-ubuntu-16.04_amd64.deb
-$ sudo apt install ./eosio_1.8.3-1-ubuntu-16.04_amd64.deb
+$ wget https://github.com/eosio/eos/releases/download/v1.8.4/eosio_1.8.4-1-ubuntu-16.04_amd64.deb
+$ sudo apt install ./eosio_1.8.4-1-ubuntu-16.04_amd64.deb
 ```
 #### Ubuntu Package Uninstall
 ```sh
@@ -58,8 +58,8 @@ $ sudo apt remove eosio
 ```
 #### Centos RPM Package Install
 ```sh
-$ wget https://github.com/eosio/eos/releases/download/v1.8.3/eosio-1.8.3-1.el7.x86_64.rpm
-$ sudo yum install ./eosio-1.8.3-1.el7.x86_64.rpm
+$ wget https://github.com/eosio/eos/releases/download/v1.8.4/eosio-1.8.4-1.el7.x86_64.rpm
+$ sudo yum install ./eosio-1.8.4-1.el7.x86_64.rpm
 ```
 #### Centos RPM Package Uninstall
 ```sh
@@ -104,3 +104,9 @@ Instructions detailing the process of getting the software, building it, running
 ## License
 
 [MIT](./LICENSE)
+
+## Important
+
+See [LICENSE](./LICENSE) for copyright and license terms.
+
+All repositories and other materials are provided subject to the terms of this [IMPORTANT](./IMPORTANT.md) notice and you must familiarize yourself with its terms.  The notice contains important information, limitations and restrictions relating to our software, publications, trademarks, third-party resources, and forward-looking statements.  By accessing any of our repositories and other materials, you accept and agree to the terms of the notice.
