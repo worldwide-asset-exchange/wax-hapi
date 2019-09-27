@@ -1,16 +1,17 @@
 # Changelog
 
-## Pending (wax-hapi-x.y.z-a.b.c)
+## Pending (wax-1.8.4-1.0.0)
 
 BREAKING CHANGES:
 
 FEATURES:
+- [KEW-1627] Upgrade to v1.8.4.
 
 IMPROVEMENTS:
 
 BUG FIXES:
 
-## wax-hapi-1.8.3-1.0.0)
+## wax-1.8.3-1.0.0
 
 BREAKING CHANGES:
 
