@@ -381,6 +381,12 @@ struct controller_impl {
       } catch ( fc::exception& e ) {
          wlog( "${details}", ("details", e.to_detail_string()) );
       } catch ( ... ) {
+         auto expPtr = std::current_exception();
+         try {
+           if(expPtr) std::rethrow_exception(expPtr);
+         } catch(const std::exception& e) {
+           wlog( "${details}", ("details", e.what()) );
+         }
          wlog( "signal handler threw exception" );
       }
    }
