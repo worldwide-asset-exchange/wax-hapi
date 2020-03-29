@@ -11,13 +11,10 @@ else()
    try_run(POSIX_TIMER_TEST_RUN_RESULT POSIX_TIMER_TEST_COMPILE_RESULT ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/platform_timer_posix_test.c)
    if(POSIX_TIMER_TEST_RUN_RESULT EQUAL 0)
       set(PLATFORM_TIMER_IMPL platform_timer_posix.cpp)
+      set(CHAIN_RT_LINKAGE rt)
    else()
       set(PLATFORM_TIMER_IMPL platform_timer_asio_fallback.cpp)
    endif()
-endif()
-
-if("wavm" IN_LIST EOSIO_WASM_RUNTIMES)
-   set(CHAIN_WAVM_SOURCES "webassembly/wavm.cpp")
 endif()
 
 if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
@@ -86,7 +83,6 @@ add_library( eosio_chain
               asset.cpp
               snapshot.cpp
 
-             ${CHAIN_WAVM_SOURCES}
              webassembly/wabt.cpp
              ${CHAIN_EOSVMOC_SOURCES}
              ${CHAIN_EOSVM_SOURCES}
@@ -110,7 +106,7 @@ add_library( eosio_chain
              )
 
 target_link_libraries( eosio_chain fc chainbase Logging IR WAST WASM Runtime
-                       softfloat builtins wabt ${CHAIN_EOSVM_LIBRARIES} ${LLVM_LIBS}
+                       softfloat builtins wabt ${CHAIN_EOSVM_LIBRARIES} ${LLVM_LIBS} ${CHAIN_RT_LINKAGE}
                      )
 target_include_directories( eosio_chain
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include"
